@@ -2,7 +2,7 @@
 
 `netbar` is a tiny terminal connectivity monitor for AI CLI workflows.
 
-It periodically checks DNS resolution and TCP connectivity, then prints a compact status such as `Online`, `Offline`, `Degraded`, or `Back online`. You can run it directly, wire it into terminal status bars, or use it with tools like tmux.
+It periodically checks DNS resolution and TCP connectivity, then shows a compact status such as `Online`, `Offline`, `Degraded`, or `Back online`. You can run it as a lightweight terminal session, wire it into terminal status bars, or use it with tools like tmux.
 
 ## Why
 
@@ -32,6 +32,20 @@ Run continuously with the default probe target:
 netbar
 ```
 
+By default, `netbar` opens your shell in an interactive session and reserves the bottom terminal row for network status.
+
+Run a command inside the session:
+
+```sh
+netbar -- codex
+```
+
+Run another shell:
+
+```sh
+netbar -- zsh
+```
+
 Probe a custom TCP endpoint or interval:
 
 ```sh
@@ -48,6 +62,12 @@ Render a tmux-compatible status segment:
 
 ```sh
 netbar -once -format tmux
+```
+
+Print continuous line-by-line updates instead of opening an interactive session:
+
+```sh
+netbar -stream
 ```
 
 Example output:
@@ -89,8 +109,19 @@ tmux source-file ~/.tmux.conf
 | `-host` | `8.8.8.8:53` | TCP host and port to probe. |
 | `-interval` | `3s` | Poll interval for continuous mode. |
 | `-once` | `false` | Run one check and exit. Useful for tmux. |
+| `-stream` | `false` | Print continuous line-by-line updates instead of opening a session. |
 | `-format` | `plain` | Output format: `plain` or `tmux`. |
 | `-state-file` | user cache directory | File used to remember the previous status. |
+
+## AI CLI Tools
+
+To keep a network indicator visible while using an AI CLI, start the CLI inside `netbar`:
+
+```sh
+netbar -- codex
+```
+
+`netbar` cannot draw into an already-running terminal program from the outside. It needs to be the wrapper process so it can reserve and redraw the bottom status row.
 
 ## Development
 

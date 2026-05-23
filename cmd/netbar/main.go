@@ -1,17 +1,19 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
-	"path/filepath"
-	"strings"
 	"syscall"
 	"time"
 
 	"github.com/heismyke/netbar/internal/monitor"
+	"github.com/heismyke/netbar/internal/session"
+	"github.com/heismyke/netbar/internal/statusfile"
+	"golang.org/x/term"
 )
 
 const (
@@ -23,17 +25,33 @@ func main() {
 	host := flag.String("host", defaultHost, "TCP host to probe")
 	interval := flag.Duration("interval", defaultInterval, "connectivity check interval")
 	once := flag.Bool("once", false, "run one check and exit")
+	stream := flag.Bool("stream", false, "print continuous status updates instead of opening an interactive session")
 	format := flag.String("format", "plain", "output format: plain or tmux")
-	stateFile := flag.String("state-file", defaultStateFile(), "path used to remember the previous status")
+	stateFile := flag.String("state-file", statusfile.DefaultPath(), "path used to remember the previous status")
 	flag.Parse()
 
 	cm := monitor.NewConnectivityManager(*host, *interval)
-	previous := readStatus(*stateFile)
+	previous := statusfile.Read(*stateFile)
 
 	if *once {
 		result := cm.Check()
 		printResult(result, previous, *format)
-		writeStatus(*stateFile, result.Status)
+		statusfile.Write(*stateFile, result.Status)
+		return
+	}
+
+	if !*stream && term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stdout.Fd())) {
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+
+		if err := session.Run(ctx, session.Config{
+			Host:      *host,
+			Interval:  *interval,
+			StateFile: *stateFile,
+			Command:   flag.Args(),
+		}); err != nil && err != context.Canceled {
+			log.Fatalf("run session: %v", err)
+		}
 		return
 	}
 
@@ -53,7 +71,7 @@ func main() {
 			}
 
 			printResult(result, previous, *format)
-			writeStatus(*stateFile, result.Status)
+			statusfile.Write(*stateFile, result.Status)
 			previous = result.Status
 		case <-signals:
 			cm.Stop()
@@ -111,43 +129,4 @@ func statusLabel(status monitor.Status, previous monitor.Status) string {
 	default:
 		return "Unknown"
 	}
-}
-
-func readStatus(path string) monitor.Status {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return ""
-	}
-
-	switch monitor.Status(strings.TrimSpace(string(data))) {
-	case monitor.StatusOnline:
-		return monitor.StatusOnline
-	case monitor.StatusDegraded:
-		return monitor.StatusDegraded
-	case monitor.StatusOffline:
-		return monitor.StatusOffline
-	default:
-		return ""
-	}
-}
-
-func writeStatus(path string, status monitor.Status) {
-	if path == "" {
-		return
-	}
-
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return
-	}
-
-	_ = os.WriteFile(path, []byte(string(status)+"\n"), 0o644)
-}
-
-func defaultStateFile() string {
-	dir, err := os.UserCacheDir()
-	if err != nil {
-		return filepath.Join(os.TempDir(), "netbar", "status")
-	}
-
-	return filepath.Join(dir, "netbar", "status")
 }
