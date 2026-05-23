@@ -1,0 +1,18 @@
+# Build output
+/netbar
+bin/
+dist/
+*.out
+
+# Test and coverage output
+coverage.out
+*.test
+
+# Local environment files
+.env
+.env.*
+
+# Editor and OS files
+.DS_Store
+.idea/
+.vscode/
