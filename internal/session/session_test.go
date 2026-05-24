@@ -13,7 +13,7 @@ func TestRenderBarFillsWidth(t *testing.T) {
 	if !strings.Contains(bar, "netbar: Online") {
 		t.Fatalf("expected bar to contain label, got %q", bar)
 	}
-	if !strings.Contains(bar, "\x1b[1;37;42m") {
+	if !strings.Contains(bar, "\x1b[1;37;48;5;28m") {
 		t.Fatalf("expected online color, got %q", bar)
 	}
 }

@@ -258,13 +258,13 @@ func renderBar(status monitor.Status, text string, width int) string {
 func statusColor(status monitor.Status) string {
 	switch status {
 	case monitor.StatusOnline:
-		return "\x1b[1;37;42m"
+		return "\x1b[1;37;48;5;28m"
 	case monitor.StatusDegraded:
-		return "\x1b[1;30;43m"
+		return "\x1b[1;30;48;5;178m"
 	case monitor.StatusOffline:
-		return "\x1b[1;37;41m"
+		return "\x1b[1;37;48;5;124m"
 	default:
-		return "\x1b[1;37;44m"
+		return "\x1b[1;37;48;5;24m"
 	}
 }
 
