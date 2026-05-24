@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -19,9 +20,15 @@ import (
 const (
 	defaultHost     = "8.8.8.8:53"
 	defaultInterval = 3 * time.Second
+	version         = "0.2.2"
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "doctor" {
+		runDoctor()
+		return
+	}
+
 	host := flag.String("host", defaultHost, "TCP host to probe")
 	interval := flag.Duration("interval", defaultInterval, "connectivity check interval")
 	once := flag.Bool("once", false, "run one check and exit")
@@ -30,7 +37,13 @@ func main() {
 	stateFile := flag.String("state-file", statusfile.DefaultPath(), "path used to remember the previous status")
 	rows := flag.Int("rows", 0, "override detected terminal rows for session mode")
 	cols := flag.Int("cols", 0, "override detected terminal columns for session mode")
+	showVersion := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Printf("netbar %s\n", version)
+		return
+	}
 
 	cm := monitor.NewConnectivityManager(*host, *interval)
 	previous := statusfile.Read(*stateFile)
@@ -42,7 +55,8 @@ func main() {
 		return
 	}
 
-	if !*stream && term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stdout.Fd())) {
+	wrappedCommand := len(flag.Args()) > 0
+	if !*stream && (wrappedCommand || isInteractiveTerminal()) {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 
@@ -81,6 +95,35 @@ func main() {
 			cm.Stop()
 		}
 	}
+}
+
+func isInteractiveTerminal() bool {
+	return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stdout.Fd()))
+}
+
+func runDoctor() {
+	exe, err := os.Executable()
+	if err != nil {
+		exe = "unknown"
+	}
+
+	fmt.Printf("netbar %s\n", version)
+	fmt.Printf("executable: %s\n", exe)
+	fmt.Printf("go: %s %s/%s\n", runtime.Version(), runtime.GOOS, runtime.GOARCH)
+	fmt.Printf("stdin terminal: %t\n", term.IsTerminal(int(os.Stdin.Fd())))
+	fmt.Printf("stdout terminal: %t\n", term.IsTerminal(int(os.Stdout.Fd())))
+	fmt.Printf("TERM: %s\n", os.Getenv("TERM"))
+	fmt.Printf("SHELL: %s\n", os.Getenv("SHELL"))
+	fmt.Printf("PATH: %s\n", os.Getenv("PATH"))
+	fmt.Printf("state file: %s\n", statusfile.DefaultPath())
+
+	rows, cols, sizeErr := term.GetSize(int(os.Stdout.Fd()))
+	if sizeErr != nil {
+		fmt.Printf("terminal size: unavailable (%v)\n", sizeErr)
+		return
+	}
+
+	fmt.Printf("terminal size: rows=%d cols=%d\n", rows, cols)
 }
 
 func printResult(result monitor.Result, previous monitor.Status, format string) {
