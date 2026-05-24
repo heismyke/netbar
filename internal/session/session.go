@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -25,6 +26,8 @@ type Config struct {
 	Interval  time.Duration
 	StateFile string
 	Command   []string
+	Rows      int
+	Cols      int
 }
 
 // Run starts an interactive command with a network status bar pinned to the
@@ -39,7 +42,7 @@ func Run(ctx context.Context, cfg Config) error {
 		command = defaultCommand()
 	}
 
-	rows, cols, err := term.GetSize(int(os.Stdout.Fd()))
+	rows, cols, err := terminalSize(cfg.Rows, cfg.Cols)
 	if err != nil {
 		return fmt.Errorf("get terminal size: %w", err)
 	}
@@ -48,7 +51,7 @@ func Run(ctx context.Context, cfg Config) error {
 	}
 
 	cmd := exec.Command(command[0], command[1:]...)
-	cmd.Env = append(os.Environ(), "NETBAR=1")
+	cmd.Env = childEnv(os.Environ(), rows-1, cols)
 
 	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{
 		Rows: uint16(rows - 1),
@@ -72,6 +75,9 @@ func Run(ctx context.Context, cfg Config) error {
 	}
 	renderer.enter()
 	defer renderer.leave()
+	if err := renderer.resizeTo(ptmx, rows, cols); err != nil {
+		return err
+	}
 
 	manager := monitor.NewConnectivityManager(cfg.Host, cfg.Interval)
 	if err := manager.Start(); err != nil {
@@ -136,7 +142,11 @@ func Run(ctx context.Context, cfg Config) error {
 				return err
 			}
 		case <-resizeSignals:
-			if err := renderer.resize(ptmx); err != nil {
+			rows, cols, err := terminalSize(cfg.Rows, cfg.Cols)
+			if err != nil {
+				return err
+			}
+			if err := renderer.resizeTo(ptmx, rows, cols); err != nil {
 				return err
 			}
 		}
@@ -200,11 +210,7 @@ func (r *renderer) drawLocked(bar string) {
 	fmt.Fprintf(r.out, "\x1b[s\x1b[%d;1H%s\x1b[u", r.rows, bar)
 }
 
-func (r *renderer) resize(ptmx *os.File) error {
-	rows, cols, err := term.GetSize(int(os.Stdout.Fd()))
-	if err != nil {
-		return err
-	}
+func (r *renderer) resizeTo(ptmx *os.File, rows int, cols int) error {
 	if rows < 3 {
 		return errors.New("terminal must be at least 3 rows tall")
 	}
@@ -286,4 +292,61 @@ func defaultCommand() []string {
 	}
 
 	return []string{shell}
+}
+
+func terminalSize(rowOverride int, colOverride int) (int, int, error) {
+	if rowOverride > 0 && colOverride > 0 {
+		return rowOverride, colOverride, nil
+	}
+
+	rows, cols, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil {
+		rows = envInt("LINES")
+		cols = envInt("COLUMNS")
+		if rows == 0 || cols == 0 {
+			return 0, 0, err
+		}
+	}
+
+	if envRows := envInt("LINES"); envRows > rows {
+		rows = envRows
+	}
+	if envCols := envInt("COLUMNS"); envCols > cols {
+		cols = envCols
+	}
+	if rowOverride > 0 {
+		rows = rowOverride
+	}
+	if colOverride > 0 {
+		cols = colOverride
+	}
+
+	return rows, cols, nil
+}
+
+func envInt(name string) int {
+	value, err := strconv.Atoi(os.Getenv(name))
+	if err != nil || value <= 0 {
+		return 0
+	}
+
+	return value
+}
+
+func childEnv(base []string, rows int, cols int) []string {
+	env := make([]string, 0, len(base)+3)
+	for _, item := range base {
+		if strings.HasPrefix(item, "NETBAR=") || strings.HasPrefix(item, "LINES=") || strings.HasPrefix(item, "COLUMNS=") {
+			continue
+		}
+		env = append(env, item)
+	}
+
+	env = append(env,
+		"NETBAR=1",
+		fmt.Sprintf("LINES=%d", rows),
+		fmt.Sprintf("COLUMNS=%d", cols),
+	)
+
+	return env
 }

@@ -40,6 +40,12 @@ Run a command inside the session:
 netbar -- codex
 ```
 
+If the wrapped program starts too narrow because your terminal reports a bad size, pass explicit columns and rows:
+
+```sh
+netbar -cols 160 -rows 48 -- codex
+```
+
 Run another shell:
 
 ```sh
@@ -112,6 +118,8 @@ tmux source-file ~/.tmux.conf
 | `-stream` | `false` | Print continuous line-by-line updates instead of opening a session. |
 | `-format` | `plain` | Output format: `plain` or `tmux`. |
 | `-state-file` | user cache directory | File used to remember the previous status. |
+| `-cols` | detected terminal columns | Override terminal columns for session mode. |
+| `-rows` | detected terminal rows | Override terminal rows for session mode. |
 
 ## AI CLI Tools
 

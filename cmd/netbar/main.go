@@ -28,6 +28,8 @@ func main() {
 	stream := flag.Bool("stream", false, "print continuous status updates instead of opening an interactive session")
 	format := flag.String("format", "plain", "output format: plain or tmux")
 	stateFile := flag.String("state-file", statusfile.DefaultPath(), "path used to remember the previous status")
+	rows := flag.Int("rows", 0, "override detected terminal rows for session mode")
+	cols := flag.Int("cols", 0, "override detected terminal columns for session mode")
 	flag.Parse()
 
 	cm := monitor.NewConnectivityManager(*host, *interval)
@@ -49,6 +51,8 @@ func main() {
 			Interval:  *interval,
 			StateFile: *stateFile,
 			Command:   flag.Args(),
+			Rows:      *rows,
+			Cols:      *cols,
 		}); err != nil && err != context.Canceled {
 			log.Fatalf("run session: %v", err)
 		}
