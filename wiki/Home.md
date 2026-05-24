@@ -1,8 +1,20 @@
-# netbar Wiki
+<p>
+  <img src="./netbar_logo_clean.svg" alt="netbar logo" width="128">
+</p>
+
+## Welcome to netbar!
 
 `netbar` is a small terminal connectivity monitor for AI CLI workflows and long-running terminal sessions.
 
 It keeps a network status signal visible while you work, so when a command appears stuck you can quickly tell whether the issue is the tool or the connection.
+
+See:
+
+- the [installation guide](Installation);
+- the [usage guide](Usage);
+- the [session mode guide](Session-Mode);
+- the [AI CLI workflow guide](AI-CLI-Workflows);
+- and the [troubleshooting guide](Troubleshooting).
 
 ## What netbar Shows
 
