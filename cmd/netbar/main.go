@@ -20,7 +20,7 @@ import (
 const (
 	defaultHost     = "8.8.8.8:53"
 	defaultInterval = 3 * time.Second
-	version         = "0.2.2"
+	version         = "0.2.4"
 )
 
 func main() {
